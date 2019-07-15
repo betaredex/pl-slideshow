@@ -107,8 +107,8 @@ class Slideshow(ChrisApp):
     VERSION                 = '0.1'
     ICON                    = '' # url of an icon image
     LICENSE                 = 'Opensource (MIT)'
-    MAX_NUMBER_OF_WORKERS   = 1  # Override with integer value
-    MIN_NUMBER_OF_WORKERS   = 10 # Override with integer value
+    MAX_NUMBER_OF_WORKERS   = 10  # Override with integer value
+    MIN_NUMBER_OF_WORKERS   = 1 # Override with integer value
     MAX_CPU_LIMIT           = '2000m' # Override with millicore value as string, e.g. '2000m'
     MIN_CPU_LIMIT           = '3000m' # Override with millicore value as string, e.g. '2000m'
     MAX_MEMORY_LIMIT        = '2000Mi' # Override with string, e.g. '1Gi', '2000Mi'
@@ -134,7 +134,7 @@ class Slideshow(ChrisApp):
         Define the CLI arguments accepted by this plugin app.
         Use self.add_argument to specify a new app argument.
         """
-        self.add_argument('-r', dest='resolution', type='str', optional=False, help='The desired resolution of the slideshow')
+        self.add_argument('-r', dest='resolution', type=str, optional=False, help='The desired resolution of the slideshow', default='1280x720')
 
     def run(self, options):
         """
@@ -143,9 +143,11 @@ class Slideshow(ChrisApp):
         print(Gstr_title)
         print('Version: %s' % self.get_version())
 
+        TMP_IMAGE_PATH = "/tmp/resized-images"
+
         # Make the directory for the resized images if it doesn't already exist
-        if not os.path.exists("/tmp/resized-images"):
-            os.mkdir("/tmp/resized-images")
+        if not os.path.exists(TMP_IMAGE_PATH):
+            os.mkdir(TMP_IMAGE_PATH)
 
         # Divide the commands among the workers equally
         commands = [[]]
@@ -154,25 +156,24 @@ class Slideshow(ChrisApp):
         files_per_worker = int(len(files)/num_workers)
         remainder = len(files) % num_workers
         i = 0
-
         for j, f in enumerate(files):
             if len(commands[i]) >= files_per_worker:
                 i += 1
                 commands.append([])
                 if i == num_workers - remainder:
                     files_per_worker += 1
-            commands[i].append("convert {} -thumbnail {} -background black -gravity center -extent {} {}.png".format(join(options.inputdir, f), options.resolution, options.resolution, join("/tmp/resized-images", str(j))))
+            commands[i].append("convert {} -thumbnail {} -background black -gravity center -extent {} {}.png".format(join(options.inputdir, f), options.resolution, options.resolution, join(TMP_IMAGE_PATH, str(j))))
+        print(commands)
 
-        # Start the workers and run the commands
-        parallel.init_worker()
-        parallel.run_commands(commands)
-        parallel.run_commands([["cat /tmp/resized-images/* | ffmpeg -y -f image2pipe -r 1 -i - -vcodec libx264 {}/out.mp4".format(options.outputdir)]])
+        # Start the workers and run the commands.The commands should be passed as a list of lists of lists of strings. See the documentation for a more in-depth explanation of how commands should be passed.
+        try:
+            parallel.run_commands([commands, [["cat {} | ffmpeg -y -f image2pipe -r 1 -i - -vcodec libx264 {}/out.mp4".format(join(TMP_IMAGE_PATH, "*"), options.outputdir)]]])
+        except:
+            print("An error occurred")
+        finally:
+            if os.path.exists(TMP_IMAGE_PATH):
+                shutil.rmtree(TMP_IMAGE_PATH)
         
-        # Cleanup
-        shutil.rmtree('/tmp/resized_files')
-        
-        parallel.exit_worker()
-
     def show_man_page(self):
         """
         Print the app's man page.

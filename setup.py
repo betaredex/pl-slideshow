@@ -4,7 +4,7 @@ import os
 
 
 # Make sure we are running python3.5+
-if 10 * sys.version_info[0] + sys.version_info[1] < 35:
+if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 5):
     sys.exit("Sorry, only Python 3.5+ is supported.")
 
 
@@ -28,7 +28,7 @@ setup(
       author_email     =   'ebrock@redhat.com',
       url              =   'http://wiki',
       packages         =   ['slideshow'],
-      install_requires =   ['chrisapp', 'pudb'],
+      install_requires =   ['chrisapp', 'pudb', 'filelock', 'inotify'],
       test_suite       =   'nose.collector',
       tests_require    =   ['nose'],
       scripts          =   ['slideshow/slideshow.py'],

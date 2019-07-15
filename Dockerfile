@@ -23,7 +23,7 @@
 
 
 
-FROM fnndsc/ubuntu-python3:latest
+FROM fnndsc/centos-python3:latest
 MAINTAINER fnndsc "dev@babymri.org"
 
 ENV APPROOT="/usr/src/slideshow"
@@ -34,5 +34,9 @@ WORKDIR $APPROOT
 
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+RUN yum install -y epel-release
+RUN rpm -v --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
+RUN rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
+RUN yum install -y ImageMagick ffmpeg
 
 CMD ["slideshow.py", "--help"]

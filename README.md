@@ -1,17 +1,19 @@
 # pl-slideshow
-An example plugin to demonstrate CHRiS' parallelization capabilities and to provide a framework for building your own parallelized CHRiS plugin
+An example plugin to demonstrate ChRIS' parallelization capabilities and to provide a framework for building your own parallelized ChRIS plugin
+
+## How do I use it?
+This plugin contains both a framework for creating your own parallelized plugins, and an example of a parallelized plugin using this framework. All of the framework logic is contained in `parallel.py`, so as a plugin writer, you only need to import that and pass the commands you want each worker to run through the `run_commands` function. Commands are run in phases to provide sequentiality. For instance, this slideshow plugin has a phase for resizing the images to the intended resolution of the video, and then a separate phase to stitch them together into the video. The video cannot be created until the resizing is complete, so it's a separate phase. Each phase is represented by a list of what command(s) each worker should run. For example, if I wanted worker 0 to run `mkdir foo` and `touch foo/bar` and worker 1 to run `mkdir beep` and `touch beep/boop` in the first phase, and then I wanted worker 0 to run `mkdir blah`, `mv foo/bar blah/` and `mv beep/boop blah/` in the second phase, this is what I'd pass to `run_commands`:
+`[[["mkdir foo", "touch foo/bar"], ["mkdir beep", "touch beep/boop"]], [["mkdir blah", "mv foo/bar blah/", "mv beep/boop blah/"]]]`
 
 ## How does it work?
-1. The code for your parallelized plugin is run by multiple workers, which all (eventually) run the `init_worker` function.
-2. Each worker is assigned a worker number. The worker with worker number 0 becomes the leader worker, and the rest become followers.
+1. The code for your parallelized plugin is run by multiple workers, which all (eventually) run the `run_commands` function.
+2. Each worker is assigned a worker number. The worker with worker number 0 becomes the leader worker, and the rest become followers. Worker numbers are used to organize the workers and communicate between them.
 3. The follower workers enter the `run_follower` function, where they will wait for communications from the leader worker.
-4. The plugin calculates what commands should be sent to each worker based on the number of workers. Note that only the leader worker runs this code, as the other workers are still waiting in the `run_follower` loop.
-5. The plugin sends commands to each worker with the `run_commands` function. Commands are passed in a list of lists of strings, where each sub-list corresponds to the commands that worker should execute. For example, if I wanted worker 0 to run `touch foo` and `mv foo bar` and I wanted worker 1 to run `touch foo2` and `mv foo2 bar2`, my commands list would look like `[["touch foo", "mv foo bar], ["touch foo2", "mv foo2 bar2"]]`.
-6. `run_commands` can be run subsequent times if you need new commands that depend on the results of previous commands.
-7. `exit_worker` sends an exit signal to all of the workers once all processing is complete.
+4. Once the leader worker sends the start signal, the followers will execute their commands and then return to idle.
+5. The leader worker will then give the start signal again to move on to the next phase, or if there are no more commands to run, it will send the exit signal to all of the workers.
 
 ## What does this plugin do in particular?
-The example plugin takes a set of images and makes them into a slideshow video. Each image is resized in parallel to fit in the video.
+The example plugin takes a set of images and makes them into a slideshow video. Each image is resized in parallel to fit in the video. All of the logic for this plugin is contained in `slideshow.py`, and all the logic for handling parallelization is contained in `parallel.py`.
 Syntax:
 ```
     python slideshow.py
